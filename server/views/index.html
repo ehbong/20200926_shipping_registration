@@ -1,0 +1,275 @@
+<!-- @format -->
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css" />
+    <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.devbridge-autocomplete/1.4.7/jquery.autocomplete.min.js"></script>
+    <script type="text/javascript" src="https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=b8tk9yhi7r&submodules=geocoder&callback=initMap"></script>
+    <script>
+      $(function () {
+        $("#autocomplete").autocomplete({
+          minChars: 2,
+          lookup: function (query, done) {
+            // 출력할 데이터 json 형식으로 받음
+            $.ajax({
+              url: "http://www.juso.go.kr/addrlink/addrLinkApiJsonp.do", //인터넷망
+              type: "post",
+              data: $("#form").serialize(),
+              dataType: "jsonp",
+              success: function (jsonObj) {
+                if (jsonObj.results.juso) {
+                  var result = {
+                    suggestions: jsonObj.results.juso // 받아온 데이터를
+                      .slice(0, 20) // 0부터 20개만 출력
+                      .map(function (dataItem) {
+                        return { value: dataItem.roadAddrPart1, data: dataItem.roadAddrPart1, desc: dataItem.jibunAddr, zip: dataItem.zipNo };
+                      }),
+                  };
+                  done(result); //리턴 값
+                }
+              },
+            });
+          },
+          width: 330,
+          maxHeight: 150, // 자동완성창 최대 높이
+          appendTo: $("#autoComplBox"), // 자동완성창 대상 위치
+          tabDisabled: true, // 커서로 다음 항목으로 이동 가능
+          deferRequestBy: 100, // 지연시간
+          onSelect: function (suggestion) {
+            $("#resultAddr").html("<div>우편번호:" + suggestion.zip + "<br/><b>도로명주소 : " + suggestion.value + "</b><br>지번주소: " + suggestion.desc + "</div>");
+            $("#detailAdDiv").show(); // 상세 주소 입력창 보이기
+
+            $("#hiddenAddrRoad").val(suggestion.value);
+            $("#hiddenAddrJibun").val(suggestion.desc);
+            $("#hiddenzipcode").val(suggestion.zip);
+          },
+          formatResult: function (suggestion, currentValue) {
+            return "<b>" + suggestion.value + "</b><br>" + suggestion.desc;
+          },
+        });
+      });
+      var map = null;
+
+      function initMap() {
+        map = new naver.maps.Map("map", {
+          center: new naver.maps.LatLng(37.3595704, 127.105399),
+          zoom: 10,
+        });
+      }
+      // 주소 검색 팝업창 닫기 및 반영
+      function closePop() {
+        $("#searchJusoPopup").hide();
+
+        var hiddenAddrRoad = $("#hiddenAddrRoad").val();
+        var hiddenAddrJibun = $("#hiddenAddrJibun").val();
+        var hiddenzipcode = $("#hiddenzipcode").val();
+        var detailAddr = $("#detailAd").val();
+        if (poupType == "E") {
+          $("#endAddr1").val(hiddenAddrRoad);
+          $("#endAddr2").val(hiddenAddrJibun);
+          $("#endZipno").val(hiddenzipcode);
+          $("#endDetailAddr").val(detailAddr);
+        } else {
+          $("#startAddr1").val(hiddenAddrRoad);
+          $("#startAddr2").val(hiddenAddrJibun);
+          $("#startZipno").val(hiddenzipcode);
+          $("#startDetailAddr").val(detailAddr);
+        }
+        convertGeoCode(hiddenAddrRoad);
+        $("#resultAddr").empty();
+        $("#detailAd").val("");
+        $("#autocomplete").val("");
+        $("#detailAdDiv").hide();
+      }
+      var poupType = "S";
+      function openPop(type) {
+        poupType = type;
+        $("#searchJusoPopup").show();
+      }
+      // 주소를 좌표로 변환
+      function convertGeoCode(addr) {
+        naver.maps.Service.geocode(
+          {
+            address: addr,
+          },
+          function (status, response) {
+            if (status !== naver.maps.Service.Status.OK) {
+              return alert("Something wrong!");
+            }
+
+            var result = response.result, // 검색 결과의 컨테이너
+              items = result.items; // 검색 결과의 배열
+
+            if (poupType == "E") {
+              startEndPosition.end.x = items[0].point.x;
+              startEndPosition.end.y = items[0].point.y;
+            } else {
+              startEndPosition.start.x = items[0].point.x;
+              startEndPosition.start.y = items[0].point.y;
+            }
+            if (items) {
+              // 마커 찍기
+              setMarker(items[0].point.x, items[0].point.y);
+            }
+
+            console.log(result);
+            // do Something
+          },
+        );
+      }
+      // 출발 도착 좌표 변수
+      var startEndPosition = {
+        start: {
+          x: null,
+          y: null,
+        },
+        end: {
+          x: null,
+          y: null,
+        },
+      };
+      // 마커 오브젝트 변수
+      var markers = {
+        start: null,
+        end: null,
+      };
+      // 마커 생성
+      function setMarker(x, y) {
+        var markerObj = null;
+        if (poupType == "S") {
+          markerObj = markers.start;
+        } else {
+          markerObj = markers.end;
+        }
+        // 마커가 계속 생기는 현상 방지 마커가 있으면 위치만 변경
+        if (markerObj) {
+          markerObj.setPosition(new naver.maps.LatLng(y, x));
+        } else {
+          if (poupType == "S") {
+            // 시작마커
+            markers.start = new naver.maps.Marker({
+              position: new naver.maps.LatLng(y, x),
+              map: map,
+            });
+          } else {
+            // 도착마커
+            markers.end = new naver.maps.Marker({
+              position: new naver.maps.LatLng(y, x),
+              map: map,
+            });
+          }
+        }
+        // 출발 도착 좌표가 입력되면 경로 계산
+        if (startEndPosition.start.x && startEndPosition.end.x) {
+          setLine();
+        }
+      }
+      // 경로 선 변수
+      var polylines = null;
+      // 경로 출력 및 거리 시간 계산
+      function setLine() {
+        $.ajax({
+          url: "/api/map/direction",
+          type: "post",
+          data: startEndPosition,
+          dataType: "json",
+          success: function (jsonObj) {
+            console.log(jsonObj);
+            var strokeColor = "#2196F3";
+            if (polylines) {
+              // 이미 경로가 있으면 삭제
+              polylines.setMap(null);
+            }
+            polylines = new naver.maps.Polyline({
+              map: map,
+              path: jsonObj.data.route.trafast[0].path,
+              strokeColor: strokeColor,
+              strokeWeight: 4,
+            });
+            $("#duration").text(Math.floor(jsonObj.data.route.trafast[0].summary.duration / 1000 / 60));
+            $("#distance").text(jsonObj.data.route.trafast[0].summary.distance / 1000);
+          },
+        });
+      }
+    </script>
+
+    <script type="text/javascript"></script>
+  </head>
+  <body>
+    <div id="map" style="width: 100%; height: 400px"></div>
+    <div>
+      <h2>출발지</h2>
+      <div>
+        <label for="startAddr1">도로명</label>
+        <input type="text" name="startAddr1" id="startAddr1" readonly="true" />
+        <label for="startAddr2">지번</label><input type="text" name="startAddr2" id="startAddr2" readonly="true" /> <label for="startZipno">우편번호</label
+        ><input type="text" name="startZipno" id="startZipno" readonly="true" />
+        <label for="startDetailAddr">상세</label>
+        <input type="text" name="startDetailAddr" id="startDetailAddr" readonly="true" />
+        <button onclick="openPop('S')">주소검색</button>
+      </div>
+      <h2>도착지</h2>
+      <div>
+        <label for="endAddr1">도로명</label>
+        <input type="text" name="endAddr1" id="endAddr1" readonly="true" /><label for="endAddr2">지번</label><input type="text" name="endAddr2" id="endAddr2" readonly="true" /><label for="endZipno"
+          >우편번호</label
+        ><input type="text" name="endZipno" id="endZipno" readonly="true" /><label for="endDetailAddr">상세</label><input type="text" name="endDetailAddr" id="endDetailAddr" readonly="true" />
+        <button onclick="openPop('E')">주소검색</button>
+      </div>
+      <h2>거리/시간</h2>
+      <span id="duration">-</span>분/<span id="distance">-</span>km
+    </div>
+    <div id="searchJusoPopup" style="display: none; width: auto">
+      <form name="form" id="form" method="get" onsubmit="return false;">
+        <input type="hidden" name="currentPage" value="1" />
+        <!-- 요청 변수 설정 (현재 페이지. currentPage : n > 0) -->
+        <input type="hidden" name="countPerPage" value="20" /><!-- 요청 변수 설정 (페이지당 출력 개수. countPerPage 범위 : 0 < n <= 100) -->
+        <input type="hidden" name="resultType" value="json" />
+        <!-- 요청 변수 설정 (검색결과형식 설정, json) -->
+        <input type="hidden" name="confmKey" value="devU01TX0FVVEgyMDIwMDkyNjEyMDk1MTExMDIzNjI=" /><!-- 요청 변수 설정 (승인키) -->
+        <span style="display: block"><b>주소검색:</b></span>
+        <input
+          type="text"
+          name="keyword"
+          class="input_box"
+          style="margin-bottom: 10px; width: 300px"
+          id="autocomplete"
+          placeholder="예) 세종대로 209, 상암동  1595, 초성검색 "
+          value=""
+        /><!-- 요청 변수 설정 (키워드) -->
+        <div id="autoComplBox"></div>
+        <p id="resultAddr"></p>
+        <div id="detailAdDiv" style="display: none">
+          <input type="hidden" id="hiddenAddrRoad" name="hiddenAddrRoad" />
+          <input type="hidden" id="hiddenAddrJibun" name="hiddenAddrJibun" />
+          <input type="hidden" id="hiddenzipcode" name="hiddenzipcode" />
+          <span style="display: block"><b>상세주소</b></span>
+          <input type="text" id="detailAd" value="" />
+          <button onclick="closePop();">확인</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="oderPopup" style="display: none">
+      <h1>주문생성</h1>
+      <div>
+        <h3>출발지 정보</h3>
+        <label for="">상호</label>
+        <input type="text" name="" id="" />
+        <label for="">전화번호</label>
+        <input type="text" name="" id="" />
+        <label for="">부서명</label>
+        <input type="text" name="" id="" />
+        <label for="">담당</label>
+        <input type="text" name="" id="" />
+        <label for="">담당</label>
+        <input type="text" name="" id="" />
+      </div>
+    </div>
+  </body>
+</html>

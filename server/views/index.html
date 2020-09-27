@@ -12,12 +12,13 @@
     <script type="text/javascript" src="https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=b8tk9yhi7r&submodules=geocoder&callback=initMap"></script>
     <script>
       $(function () {
+        // 주소 검색창 자동완성
         $("#autocomplete").autocomplete({
           minChars: 2,
           lookup: function (query, done) {
             // 출력할 데이터 json 형식으로 받음
             $.ajax({
-              url: "http://www.juso.go.kr/addrlink/addrLinkApiJsonp.do", //인터넷망
+              url: "http://www.juso.go.kr/addrlink/addrLinkApiJsonp.do", // 주소 검색 API
               type: "post",
               data: $("#form").serialize(),
               dataType: "jsonp",
@@ -35,11 +36,12 @@
               },
             });
           },
-          width: 330,
+          width: 330, // 너비
           maxHeight: 150, // 자동완성창 최대 높이
           appendTo: $("#autoComplBox"), // 자동완성창 대상 위치
           tabDisabled: true, // 커서로 다음 항목으로 이동 가능
           deferRequestBy: 100, // 지연시간
+          // 선택할때 액션
           onSelect: function (suggestion) {
             $("#resultAddr").html("<div>우편번호:" + suggestion.zip + "<br/><b>도로명주소 : " + suggestion.value + "</b><br>지번주소: " + suggestion.desc + "</div>");
             $("#detailAdDiv").show(); // 상세 주소 입력창 보이기
@@ -48,13 +50,15 @@
             $("#hiddenAddrJibun").val(suggestion.desc);
             $("#hiddenzipcode").val(suggestion.zip);
           },
+          // 자동완성 출력형식
           formatResult: function (suggestion, currentValue) {
             return "<b>" + suggestion.value + "</b><br>" + suggestion.desc;
           },
         });
       });
+      // 맵객체 전역변수
       var map = null;
-
+      // 맵초기화
       function initMap() {
         map = new naver.maps.Map("map", {
           center: new naver.maps.LatLng(37.3595704, 127.105399),
@@ -69,6 +73,7 @@
         var hiddenAddrJibun = $("#hiddenAddrJibun").val();
         var hiddenzipcode = $("#hiddenzipcode").val();
         var detailAddr = $("#detailAd").val();
+        // 검색 팝업이 출발지인지 도착지 검색중인지 구분
         if (poupType == "E") {
           $("#endAddr1").val(hiddenAddrRoad);
           $("#endAddr2").val(hiddenAddrJibun);
@@ -80,13 +85,16 @@
           $("#startZipno").val(hiddenzipcode);
           $("#startDetailAddr").val(detailAddr);
         }
+        // 좌표로 변환
         convertGeoCode(hiddenAddrRoad);
         $("#resultAddr").empty();
         $("#detailAd").val("");
         $("#autocomplete").val("");
         $("#detailAdDiv").hide();
       }
+      // 주소검색 팝업 구분
       var poupType = "S";
+      // 팝업 열때 출발지 인지 도착지 검색인지 받음
       function openPop(type) {
         poupType = type;
         $("#searchJusoPopup").show();
@@ -116,9 +124,6 @@
               // 마커 찍기
               setMarker(items[0].point.x, items[0].point.y);
             }
-
-            console.log(result);
-            // do Something
           },
         );
       }
@@ -180,21 +185,33 @@
           dataType: "json",
           success: function (jsonObj) {
             console.log(jsonObj);
+            // 선 색
             var strokeColor = "#2196F3";
             if (polylines) {
               // 이미 경로가 있으면 삭제
               polylines.setMap(null);
             }
+            // 라인 그리기
             polylines = new naver.maps.Polyline({
-              map: map,
-              path: jsonObj.data.route.trafast[0].path,
-              strokeColor: strokeColor,
-              strokeWeight: 4,
+              map: map, //지도객체
+              path: jsonObj.data.route.trafast[0].path, // 경로
+              strokeColor: strokeColor, // 선 색
+              strokeWeight: 4, // 선 굵기
             });
+            // 거리 및 시간 계산
             $("#duration").text(Math.floor(jsonObj.data.route.trafast[0].summary.duration / 1000 / 60));
             $("#distance").text(jsonObj.data.route.trafast[0].summary.distance / 1000);
+            // 주문 생성 버튼 보이기
+            $("#createOrderBtn").show();
           },
         });
+      }
+      function openOrderPopup() {
+        $("#orderPopup").show();
+        $("#startAddrInPop").val($("#startAddr1").val());
+        $("#startDetailAddrInPop").val($("#startDetailAddr").val());
+        $("#endAddrInPop").val($("#endAddr1").val());
+        $("#endDetailAddrInPop").val($("#endDetailAddr").val());
       }
     </script>
 
@@ -254,8 +271,9 @@
         </div>
       </form>
     </div>
+    <button id="createOrderBtn" onclick="openOrderPopup();" style="display: none">주문생성</button>
 
-    <div id="oderPopup" style="display: none">
+    <div id="orderPopup" style="display: none">
       <h1>주문생성</h1>
       <div>
         <h3>출발지 정보</h3>
@@ -267,7 +285,37 @@
         <input type="text" name="" id="" />
         <label for="">담당</label>
         <input type="text" name="" id="" />
+        <label for="">출발주소</label>
+        <input type="text" name="" id="startAddrInPop" />
+        <label for="">상세주소</label>
+        <input type="text" name="" id="startDetailAddrInPop" />
+      </div>
+      <div>
+        <h3>도착지 정보</h3>
+        <label for="">상호</label>
+        <input type="text" name="" id="" />
+        <label for="">전화번호</label>
+        <input type="text" name="" id="" />
+        <label for="">부서명</label>
+        <input type="text" name="" id="" />
         <label for="">담당</label>
+        <input type="text" name="" id="" />
+        <label for="">도착주소</label>
+        <input type="text" name="" id="endAddrInPop" />
+        <label for="">상세주소</label>
+        <input type="text" name="" id="endDetailAddrInPop" />
+      </div>
+      <div>
+        <h3>접수자 정보</h3>
+        <label for="">접수자 회사명</label>
+        <input type="text" name="" id="" />
+        <label for="">접수자 연락처</label>
+        <input type="text" name="" id="" />
+        <label for="">접수자 부서명</label>
+        <input type="text" name="" id="" />
+        <label for="">접수자 담당</label>
+        <input type="text" name="" id="" />
+        <label for="">배송사유</label>
         <input type="text" name="" id="" />
       </div>
     </div>

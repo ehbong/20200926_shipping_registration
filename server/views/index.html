@@ -40,7 +40,7 @@
           maxHeight: 150, // 자동완성창 최대 높이
           appendTo: $("#autoComplBox"), // 자동완성창 대상 위치
           tabDisabled: true, // 커서로 다음 항목으로 이동 가능
-          deferRequestBy: 100, // 지연시간
+          deferRequestBy: 50, // 지연시간
           // 선택할때 액션
           onSelect: function (suggestion) {
             $("#resultAddr").html("<div>우편번호:" + suggestion.zip + "<br/><b>도로명주소 : " + suggestion.value + "</b><br>지번주소: " + suggestion.desc + "</div>");
@@ -213,6 +213,9 @@
         $("#endAddrInPop").val($("#endAddr1").val());
         $("#endDetailAddrInPop").val($("#endDetailAddr").val());
       }
+      function closeOrderPopup() {
+        $("#orderPopup").hide();
+      }
     </script>
 
     <script type="text/javascript"></script>
@@ -318,6 +321,7 @@
         <label for="">배송사유</label>
         <input type="text" name="" id="" />
       </div>
+      <button onclick="closeOrderPopup()">닫기</button>
     </div>
   </body>
 </html>

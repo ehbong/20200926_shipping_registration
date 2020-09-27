@@ -55,6 +55,8 @@
             return "<b>" + suggestion.value + "</b><br>" + suggestion.desc;
           },
         });
+
+        $("#fileuploadBtn").on("click", uploadFile);
       });
       // 맵객체 전역변수
       var map = null;
@@ -206,6 +208,7 @@
           },
         });
       }
+      // 주문 팝업열기
       function openOrderPopup() {
         $("#orderPopup").show();
         $("#startAddrInPop").val($("#startAddr1").val());
@@ -213,8 +216,45 @@
         $("#endAddrInPop").val($("#endAddr1").val());
         $("#endDetailAddrInPop").val($("#endDetailAddr").val());
       }
+      // 주문 팝업닫기
       function closeOrderPopup() {
         $("#orderPopup").hide();
+      }
+
+      //파일 업로드
+      function uploadFile(e) {
+        //e.preventdefault();
+        var form = $("#excelForm")[0];
+        var formData = new FormData(form);
+        formData.append("xlsx", $("#excelFile")[0].files[0]);
+
+        $.ajax({
+          url: "/api/excel",
+          processData: false,
+          contentType: false,
+          data: formData,
+          type: "POST",
+          success: function (result) {
+            console.log(result);
+            alert("업로드 성공!!");
+            var str = "";
+            if (result.success) {
+              var objData = result.resData;
+              var sheetKeyList = Object.keys(objData);
+              sheetKeyList.map(function (obj) {
+                objData[obj].map(function (inObj) {
+                  var keys = Object.keys(inObj);
+                  str += "<tr>";
+                  for (var i = 0; i < keys.length; i++) {
+                    str += "<td>" + inObj[keys[i]] + "</td>";
+                  }
+                  str += "</tr>";
+                });
+              });
+              $("#excelTable").append(str);
+            }
+          },
+        });
       }
     </script>
 
@@ -222,6 +262,22 @@
   </head>
   <body>
     <div id="map" style="width: 100%; height: 400px"></div>
+    <h2>과제 샘플 업로드</h2>
+    <form method="POST" id="excelForm" enctype="multipart/form-data">
+      <input type="file" name="xlsx" id="excelFile" />
+    </form>
+    <button id="fileuploadBtn">업로드</button>
+    <table id="excelTable">
+      <tr>
+        <th>주문번호</th>
+        <th>서비스명</th>
+        <th>칸번호</th>
+        <th>수취인명</th>
+        <th>수취인연락처1</th>
+        <th>수취인연락처2</th>
+        <th>배송지</th>
+      </tr>
+    </table>
     <div>
       <h2>출발지</h2>
       <div>

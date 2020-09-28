@@ -95,7 +95,7 @@
         $("#detailAdDiv").hide();
       }
       // 주소검색 팝업 구분
-      var poupType = "S";
+      var poupType = "";
       // 팝업 열때 출발지 인지 도착지 검색인지 받음
       function openPop(type) {
         poupType = type;
@@ -118,7 +118,7 @@
             if (poupType == "E") {
               startEndPosition.end.x = items[0].point.x;
               startEndPosition.end.y = items[0].point.y;
-            } else {
+            } else if (poupType == "S") {
               startEndPosition.start.x = items[0].point.x;
               startEndPosition.start.y = items[0].point.y;
             }
@@ -150,7 +150,7 @@
         var markerObj = null;
         if (poupType == "S") {
           markerObj = markers.start;
-        } else {
+        } else if (poupType == "E") {
           markerObj = markers.end;
         }
         // 마커가 계속 생기는 현상 방지 마커가 있으면 위치만 변경
@@ -163,9 +163,14 @@
               position: new naver.maps.LatLng(y, x),
               map: map,
             });
-          } else {
+          } else if (poupType == "E") {
             // 도착마커
             markers.end = new naver.maps.Marker({
+              position: new naver.maps.LatLng(y, x),
+              map: map,
+            });
+          } else {
+            var marker = new naver.maps.Marker({
               position: new naver.maps.LatLng(y, x),
               map: map,
             });
@@ -250,17 +255,22 @@
                   str += "<tr>";
                   for (var i = 0; i < keys.length; i++) {
                     // 주소지와 상세주소 분리하기(검색 편의성)
+                    poupType = "";
                     if (keys[i] == "배송지") {
                       if (regExp.test(inObj[keys[i]])) {
                         // 신주소 구조일 경우 ..로 000 구조
                         var detailAddr = inObj[keys[i]].replace(regExp, "");
-                        str += "<td>" + inObj[keys[i]].replace(detailAddr, "").replace(/,$/, "") + "</td>";
+                        var addr = inObj[keys[i]].replace(detailAddr, "").replace(/,$/, "");
+                        str += "<td>" + addr + "</td>";
                         str += "<td>" + detailAddr + "</td>";
+                        convertGeoCode(addr);
                       } else {
                         // 구주소일 경우 동, 읍, 면
                         var detailAddr = inObj[keys[i]].replace(/(.*)([$동읍면] [0-9]*[,]?)/, "");
-                        str += "<td>" + inObj[keys[i]].replace(detailAddr, "").replace(/,$/, "") + "</td>";
+                        var addr = inObj[keys[i]].replace(detailAddr, "").replace(/,$/, "");
+                        str += "<td>" + addr + "</td>";
                         str += "<td>" + detailAddr + "</td>";
+                        convertGeoCode(addr);
                       }
                     } else {
                       str += "<td>" + inObj[keys[i]] + "</td>";

@@ -239,14 +239,32 @@
             alert("업로드 성공!!");
             var str = "";
             if (result.success) {
+              // 신주소 구분 정규식
+              var regExp = new RegExp(/(.*)([$로] [0-9]*[,]?)/);
               var objData = result.resData;
               var sheetKeyList = Object.keys(objData);
               sheetKeyList.map(function (obj) {
                 objData[obj].map(function (inObj) {
                   var keys = Object.keys(inObj);
+
                   str += "<tr>";
                   for (var i = 0; i < keys.length; i++) {
-                    str += "<td>" + inObj[keys[i]] + "</td>";
+                    // 주소지와 상세주소 분리하기(검색 편의성)
+                    if (keys[i] == "배송지") {
+                      if (regExp.test(inObj[keys[i]])) {
+                        // 신주소 구조일 경우 ..로 000 구조
+                        var detailAddr = inObj[keys[i]].replace(regExp, "");
+                        str += "<td>" + inObj[keys[i]].replace(detailAddr, "").replace(/,$/, "") + "</td>";
+                        str += "<td>" + detailAddr + "</td>";
+                      } else {
+                        // 구주소일 경우 동, 읍, 면
+                        var detailAddr = inObj[keys[i]].replace(/(.*)([$동읍면] [0-9]*[,]?)/, "");
+                        str += "<td>" + inObj[keys[i]].replace(detailAddr, "").replace(/,$/, "") + "</td>";
+                        str += "<td>" + detailAddr + "</td>";
+                      }
+                    } else {
+                      str += "<td>" + inObj[keys[i]] + "</td>";
+                    }
                   }
                   str += "</tr>";
                 });
@@ -276,6 +294,7 @@
         <th>수취인연락처1</th>
         <th>수취인연락처2</th>
         <th>배송지</th>
+        <th>상세주소</th>
       </tr>
     </table>
     <div>

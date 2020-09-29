@@ -144,7 +144,9 @@
       var markers = {
         start: null,
         end: null,
+        list: [],
       };
+
       // 마커 생성
       function setMarker(x, y) {
         var markerObj = null;
@@ -174,6 +176,7 @@
               position: new naver.maps.LatLng(y, x),
               map: map,
             });
+            markers.list.push(marker);
           }
         }
         // 출발 도착 좌표가 입력되면 경로 계산
@@ -249,6 +252,11 @@
               var objData = result.resData;
               var sheetKeyList = Object.keys(objData);
               sheetKeyList.map(function (obj) {
+                if (markers.list.length > 0) {
+                  markers.list.map(function (markerObj) {
+                    markerObj.setMap(null);
+                  });
+                }
                 objData[obj].map(function (inObj) {
                   var keys = Object.keys(inObj);
 
@@ -263,6 +271,7 @@
                         var addr = inObj[keys[i]].replace(detailAddr, "").replace(/,$/, "");
                         str += "<td>" + addr + "</td>";
                         str += "<td>" + detailAddr + "</td>";
+                        // 주소를 좌표로 변환하고 마커생성
                         convertGeoCode(addr);
                       } else {
                         // 구주소일 경우 동, 읍, 면
@@ -270,6 +279,7 @@
                         var addr = inObj[keys[i]].replace(detailAddr, "").replace(/,$/, "");
                         str += "<td>" + addr + "</td>";
                         str += "<td>" + detailAddr + "</td>";
+                        // 주소를 좌표로 변환하고 마커생성
                         convertGeoCode(addr);
                       }
                     } else {
@@ -279,6 +289,18 @@
                   str += "</tr>";
                 });
               });
+              // 테이블 초기화
+              $("#excelTable").empty();
+              $("#excelTable").append(`<tr>
+                                        <th>주문번호</th>
+                                        <th>서비스명</th>
+                                        <th>칸번호</th>
+                                        <th>수취인명</th>
+                                        <th>수취인연락처1</th>
+                                        <th>수취인연락처2</th>
+                                        <th>배송지</th>
+                                        <th>상세주소</th>
+                                      </tr>`);
               $("#excelTable").append(str);
             }
           },
@@ -295,18 +317,7 @@
       <input type="file" name="xlsx" id="excelFile" />
     </form>
     <button id="fileuploadBtn">업로드</button>
-    <table id="excelTable">
-      <tr>
-        <th>주문번호</th>
-        <th>서비스명</th>
-        <th>칸번호</th>
-        <th>수취인명</th>
-        <th>수취인연락처1</th>
-        <th>수취인연락처2</th>
-        <th>배송지</th>
-        <th>상세주소</th>
-      </tr>
-    </table>
+    <table id="excelTable"></table>
     <div>
       <h2>출발지</h2>
       <div>

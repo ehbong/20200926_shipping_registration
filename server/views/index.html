@@ -252,6 +252,7 @@
               var objData = result.resData;
               var sheetKeyList = Object.keys(objData);
               sheetKeyList.map(function (obj) {
+                // 파일 업로드로 그린 마커들이 있을 경우 삭제
                 if (markers.list.length > 0) {
                   markers.list.map(function (markerObj) {
                     markerObj.setMap(null);

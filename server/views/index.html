@@ -289,7 +289,7 @@
         }
       }
       // 경로 선 변수
-      var polylines = null;
+      var polylines = [];
       // 경로 출력 및 거리 시간 계산
       function setLine(obj, notInit, seq) {
         var positionObj = startEndPosition;
@@ -305,17 +305,18 @@
             console.log(jsonObj);
             // 선 색
             var strokeColor = "#2196F3";
-            if (polylines && !notInit) {
+            if (polylines.length > 0 && !notInit) {
               // 이미 경로가 있으면 삭제
-              polylines.setMap(null);
+              initsPolylines();
             }
             // 라인 그리기
-            polylines = new naver.maps.Polyline({
+            var polyline = new naver.maps.Polyline({
               map: map, //지도객체
               path: jsonObj.data.route.trafast[0].path, // 경로
               strokeColor: strokeColor, // 선 색
               strokeWeight: 4, // 선 굵기
             });
+            polylines.push(polyline);
             var distance = jsonObj.data.route.trafast[0].summary.distance / 1000;
             var duration = Math.ceil(jsonObj.data.route.trafast[0].summary.duration / 1000 / 60);
             // 복수건일 경우 거리, 시간 합
@@ -428,17 +429,10 @@
               var regExp = new RegExp(/(.*)([$로] [0-9]*[,]?((번길)[ ]?[0-9]*)?)/);
               var objData = result.resData;
               var sheetKeyList = Object.keys(objData);
+              markerModeOnOff = false;
               sheetKeyList.map(function (obj) {
-                // 파일 업로드로 그린 마커들이 있을 경우 삭제
-                if (markers.list.length > 0) {
-                  markers.list.map(function (markerObj) {
-                    markerObj.setMap(null);
-                  });
-                  // 거리 시간 합 초기화
-                  excelRangeInfo.duration = 0;
-                  excelRangeInfo.distance = 0;
-                  excelPositions = [];
-                }
+                // 파일 업로드로 그린 마커, 라인들이 있을 경우 삭제
+                initData();
                 objData[obj].map(function (inObj, idx) {
                   var keys = Object.keys(inObj);
 
@@ -488,6 +482,30 @@
           },
         });
       }
+      // 마커 오브젝트 초기화
+      function initMarkers() {
+        if (markers.list.length > 0) {
+          markers.list.map(function (markerObj) {
+            markerObj.setMap(null);
+          });
+          markers.list = [];
+          // 거리 시간 합 초기화
+          excelRangeInfo.duration = 0;
+          excelRangeInfo.distance = 0;
+          excelPositions = [];
+          infoWindows.map(function (infoObj) {
+            infoObj.setMap(null);
+          });
+        }
+      }
+      // 라인 오브젝트 초기화
+      function initsPolylines() {
+        if (polylines.length > 0) {
+          polylines.map(function (polyline) {
+            polyline.setMap(null);
+          });
+        }
+      }
 
       // 엑셀 파일 생성, 다운로드
       function createExcelFile() {
@@ -507,7 +525,17 @@
       // 마커 클릭 생성 모드 온오프
       var markerModeOnOff = false;
       function changeMarkerCreateMode() {
+        // 기존 데이터 삭제
+        initData();
         markerModeOnOff = !markerModeOnOff;
+      }
+
+      function initData() {
+        initMarkers();
+        initsPolylines();
+
+        infoWindows = [];
+        markerModePositionList = [];
       }
     </script>
 
@@ -517,6 +545,7 @@
     <div id="map" style="width: 100%; height: 600px"></div>
     <button onclick="changeMarkerCreateMode()">클릭해서 마커 모드 전환</button>
     <button onclick="createExcelFile()">클릭해서 생성한 마커 경로 다운로드</button>
+    <button onclick="initData()">마커 데이터 초기화</button>
     <h2>과제 샘플 업로드</h2>
     <form method="POST" id="excelForm" enctype="multipart/form-data">
       <input type="file" name="xlsx" id="excelFile" />

@@ -13,6 +13,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "views")));
+app.use(express.static("./../temp"));
 app.use("/api/excel", require("./routes/excel"));
 app.use("/api/map", require("./routes/map"));
 

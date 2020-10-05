@@ -58,13 +58,50 @@
 
         $("#fileuploadBtn").on("click", uploadFile);
       });
+
       // 맵객체 전역변수
       var map = null;
+      // 마커 찍은 데이터 변수
+      var markerModePositionList = [];
       // 맵초기화
       function initMap() {
         map = new naver.maps.Map("map", {
           center: new naver.maps.LatLng(37.3595704, 127.105399),
           zoom: 10,
+        });
+        // 지도 클릭 이벤트
+        naver.maps.Event.addListener(map, "click", function (e) {
+          // 마커 생성 모드 활성화 여부
+          if (markerModeOnOff) {
+            var marker = new naver.maps.Marker({
+              position: e.coord,
+              map: map,
+            });
+            // 마커 저장
+            markers.list.push(marker);
+            // 마커 데이터 저장
+            markerModePositionList.push({ x: e.coord.x, y: e.coord.y });
+            // 마커 클릭시 인포 이벤트 등록
+            naver.maps.Event.addListener(markers.list[markers.list.length - 1], "click", getClickHandler(markers.list.length - 1));
+            // 주소로 변환해서 배열에 저장
+            reverseGeoCode(e.coord.x, e.coord.y, markerModePositionList.length - 1);
+            if (markerModePositionList.length > 1) {
+              setLine(
+                {
+                  start: {
+                    x: markerModePositionList[markerModePositionList.length - 2].x,
+                    y: markerModePositionList[markerModePositionList.length - 2].y,
+                  },
+                  end: {
+                    x: markerModePositionList[markerModePositionList.length - 1].x,
+                    y: markerModePositionList[markerModePositionList.length - 1].y,
+                  },
+                },
+                true,
+                markers.list.length - 1,
+              );
+            }
+          }
         });
       }
       // 주소 검색 팝업창 닫기 및 반영
@@ -108,9 +145,12 @@
         duration: 0,
         distance: 0,
       };
+      // 인포 윈도우 데이터 변수
+      var infoWindows = [];
 
       // 주소를 좌표로 변환
-      function convertGeoCode(addr, positionSave) {
+      function convertGeoCode(addr, positionSave, seq) {
+        excelPositions[seq] = {};
         naver.maps.Service.geocode(
           {
             address: addr,
@@ -131,31 +171,66 @@
               startEndPosition.start.y = items[0].point.y;
             } else {
               if (positionSave == "save") {
-                excelPositions.push(items[0]);
+                excelPositions[seq] = items[0];
+                if (seq == 0) {
+                  // 시작 지점 인포(시간, 거리 없음)
+                  var infowindow = new naver.maps.InfoWindow();
 
-                if (excelPositions.length > 1) {
-                  setLine(
-                    {
-                      start: {
-                        x: excelPositions[excelPositions.length - 2].point.x,
-                        y: excelPositions[excelPositions.length - 2].point.y,
-                      },
-                      end: {
-                        x: excelPositions[excelPositions.length - 1].point.x,
-                        y: excelPositions[excelPositions.length - 1].point.y,
-                      },
-                    },
-                    true,
-                  );
+                  infowindow.setContent('<div style="padding:20px;">' + (seq + 1) + "." + excelPositions[seq].address + "</div>");
+                  infoWindows[seq] = infowindow;
+                }
+                // 비동기 방식으로 인해 순서가 섞임
+                // excelPositions.push(items[0]);
+
+                //infowindow.open(map, new naver.maps.LatLng(items[0].point.y, items[0].point.x));
+
+                if (seq != 0) {
+                  var tryCnt = 0;
+                  var intervalObj = setInterval(function () {
+                    if (excelPositions[seq - 1].point) {
+                      setLine(
+                        {
+                          start: {
+                            x: excelPositions[seq].point.x,
+                            y: excelPositions[seq].point.y,
+                          },
+                          end: {
+                            x: excelPositions[seq - 1].point.x,
+                            y: excelPositions[seq - 1].point.y,
+                          },
+                        },
+                        true,
+                        seq,
+                      );
+                      clearInterval(intervalObj);
+                    }
+                    tryCnt++;
+                    if (tryCnt == 5) {
+                      clearInterval(intervalObj);
+                    }
+                  }, 1000);
                 }
               }
             }
             if (items) {
               // 마커 찍기
-              setMarker(items[0].point.x, items[0].point.y);
+              setMarker(items[0].point.x, items[0].point.y, seq);
             }
           },
         );
+      }
+      // 해당 마커의 인덱스를 seq라는 클로저 변수로 저장하는 이벤트 핸들러를 반환합니다.
+      function getClickHandler(seq) {
+        return function (e) {
+          var marker = markers.list[seq],
+            infoWindow = infoWindows[seq];
+
+          if (infoWindow.getMap()) {
+            infoWindow.close();
+          } else {
+            infoWindow.open(map, marker);
+          }
+        };
       }
       // 출발 도착 좌표 변수
       var startEndPosition = {
@@ -176,7 +251,7 @@
       };
 
       // 마커 생성
-      function setMarker(x, y) {
+      function setMarker(x, y, seq) {
         var markerObj = null;
         if (poupType == "S") {
           markerObj = markers.start;
@@ -204,7 +279,8 @@
               position: new naver.maps.LatLng(y, x),
               map: map,
             });
-            markers.list.push(marker);
+            markers.list[seq] = marker;
+            naver.maps.Event.addListener(markers.list[seq], "click", getClickHandler(seq));
           }
         }
         // 출발 도착 좌표가 입력되면 경로 계산
@@ -215,7 +291,7 @@
       // 경로 선 변수
       var polylines = null;
       // 경로 출력 및 거리 시간 계산
-      function setLine(obj, notInit) {
+      function setLine(obj, notInit, seq) {
         var positionObj = startEndPosition;
         // 매개변수가 들어오면 매개변수 값을 전송
         if (obj) positionObj = obj;
@@ -240,22 +316,83 @@
               strokeColor: strokeColor, // 선 색
               strokeWeight: 4, // 선 굵기
             });
-            // 엑셀 데이터일 경우 거리, 시간 합
+            var distance = jsonObj.data.route.trafast[0].summary.distance / 1000;
+            var duration = Math.ceil(jsonObj.data.route.trafast[0].summary.duration / 1000 / 60);
+            // 복수건일 경우 거리, 시간 합
             if (notInit) {
               excelRangeInfo.duration += jsonObj.data.route.trafast[0].summary.duration;
               excelRangeInfo.distance += jsonObj.data.route.trafast[0].summary.distance;
+              // 찍은 마커 거리, 시간 정보 담기
+              if (markerModeOnOff) {
+                markerModePositionList[seq].duration = duration;
+                markerModePositionList[seq].distance = distance;
+              }
               // 거리 및 시간 계산
-              $("#duration").text(Math.floor(excelRangeInfo.duration / 1000 / 60));
+              $("#duration").text(Math.ceil(excelRangeInfo.duration / 1000 / 60));
               $("#distance").text(excelRangeInfo.distance / 1000);
+              // 맵 안내판
+              var infowindow = new naver.maps.InfoWindow();
+              infowindow.setContent(
+                '<div style="padding:20px;">' +
+                  (seq + 1) +
+                  "." +
+                  (function () {
+                    if (excelPositions[seq]) {
+                      return excelPositions[seq].address;
+                    } else {
+                      return markerModePositionList[seq].address.jibunAddress == "" ? markerModePositionList[seq].address.roadAddress : markerModePositionList[seq].address.jibunAddress;
+                    }
+                  })() +
+                  "<br>거리:" +
+                  distance +
+                  "km<br>시간:" +
+                  duration +
+                  "분</div>",
+              );
+              infoWindows[seq] = infowindow;
             } else {
               // 거리 및 시간 계산
-              $("#duration").text(Math.floor(jsonObj.data.route.trafast[0].summary.duration / 1000 / 60));
-              $("#distance").text(jsonObj.data.route.trafast[0].summary.distance / 1000);
+              $("#duration").text(duration);
+              $("#distance").text(distance);
             }
             // 주문 생성 버튼 보이기
             $("#createOrderBtn").show();
           },
         });
+      }
+      // 좌표를 주소로 변환
+      function reverseGeoCode(x, y, seq) {
+        naver.maps.Service.reverseGeocode(
+          {
+            coords: new naver.maps.LatLng(y, x),
+            orders: "legalcode,admcode,addr,roadaddr",
+          },
+          function (status, response) {
+            if (status !== naver.maps.Service.Status.OK) {
+              return alert("Something wrong!");
+            }
+
+            var result = response.v2, // 검색 결과의 컨테이너
+              items = result.results, // 검색 결과의 배열
+              address = result.address; // 검색 결과로 만든 주소
+            markerModePositionList[seq].address = address;
+            if (seq == 0) {
+              var infowindow = new naver.maps.InfoWindow();
+
+              infowindow.setContent(
+                '<div style="padding:20px;">' +
+                  (seq + 1) +
+                  "." +
+                  (function () {
+                    return address.jibunAddress == "" ? roadAddress : address.jibunAddress;
+                  })() +
+                  "</div>",
+              );
+              infoWindows[seq] = infowindow;
+            }
+            // do Something
+          },
+        );
       }
       // 주문 팝업열기
       function openOrderPopup() {
@@ -288,7 +425,7 @@
             var str = "";
             if (result.success) {
               // 신주소 구분 정규식
-              var regExp = new RegExp(/(.*)([$로] [0-9]*[,]?)/);
+              var regExp = new RegExp(/(.*)([$로] [0-9]*[,]?((번길)[ ]?[0-9]*)?)/);
               var objData = result.resData;
               var sheetKeyList = Object.keys(objData);
               sheetKeyList.map(function (obj) {
@@ -297,8 +434,12 @@
                   markers.list.map(function (markerObj) {
                     markerObj.setMap(null);
                   });
+                  // 거리 시간 합 초기화
+                  excelRangeInfo.duration = 0;
+                  excelRangeInfo.distance = 0;
+                  excelPositions = [];
                 }
-                objData[obj].map(function (inObj) {
+                objData[obj].map(function (inObj, idx) {
                   var keys = Object.keys(inObj);
 
                   str += "<tr>";
@@ -313,7 +454,7 @@
                         str += "<td>" + addr + "</td>";
                         str += "<td>" + detailAddr + "</td>";
                         // 주소를 좌표로 변환하고 마커생성
-                        convertGeoCode(addr, "save");
+                        convertGeoCode(addr, "save", idx);
                       } else {
                         // 구주소일 경우 동, 읍, 면
                         var detailAddr = inObj[keys[i]].replace(/(.*)([$동읍면] [0-9]*[,]?)/, "");
@@ -321,7 +462,7 @@
                         str += "<td>" + addr + "</td>";
                         str += "<td>" + detailAddr + "</td>";
                         // 주소를 좌표로 변환하고 마커생성
-                        convertGeoCode(addr, "save");
+                        convertGeoCode(addr, "save", idx);
                       }
                     } else {
                       str += "<td>" + inObj[keys[i]] + "</td>";
@@ -347,12 +488,35 @@
           },
         });
       }
+
+      // 엑셀 파일 생성, 다운로드
+      function createExcelFile() {
+        if (markerModePositionList.length == 0) {
+          alert("클릭으로 생성한 마커가 없습니다.");
+          return false;
+        }
+        $.ajax({
+          url: "/api/excel/saveExcel",
+          data: { data: JSON.stringify(markerModePositionList) },
+          type: "POST",
+          success: function (result) {
+            location.href = "/" + result.fileName;
+          },
+        });
+      }
+      // 마커 클릭 생성 모드 온오프
+      var markerModeOnOff = false;
+      function changeMarkerCreateMode() {
+        markerModeOnOff = !markerModeOnOff;
+      }
     </script>
 
     <script type="text/javascript"></script>
   </head>
   <body>
-    <div id="map" style="width: 100%; height: 400px"></div>
+    <div id="map" style="width: 100%; height: 600px"></div>
+    <button onclick="changeMarkerCreateMode()">클릭해서 마커 모드 전환</button>
+    <button onclick="createExcelFile()">클릭해서 생성한 마커 경로 다운로드</button>
     <h2>과제 샘플 업로드</h2>
     <form method="POST" id="excelForm" enctype="multipart/form-data">
       <input type="file" name="xlsx" id="excelFile" />

@@ -101,8 +101,16 @@
         poupType = type;
         $("#searchJusoPopup").show();
       }
+      // 엑셀 좌표 데이터
+      var excelPositions = [];
+      // 엑셀 거리 시간 정보
+      var excelRangeInfo = {
+        duration: 0,
+        distance: 0,
+      };
+
       // 주소를 좌표로 변환
-      function convertGeoCode(addr) {
+      function convertGeoCode(addr, positionSave) {
         naver.maps.Service.geocode(
           {
             address: addr,
@@ -121,6 +129,26 @@
             } else if (poupType == "S") {
               startEndPosition.start.x = items[0].point.x;
               startEndPosition.start.y = items[0].point.y;
+            } else {
+              if (positionSave == "save") {
+                excelPositions.push(items[0]);
+
+                if (excelPositions.length > 1) {
+                  setLine(
+                    {
+                      start: {
+                        x: excelPositions[excelPositions.length - 2].point.x,
+                        y: excelPositions[excelPositions.length - 2].point.y,
+                      },
+                      end: {
+                        x: excelPositions[excelPositions.length - 1].point.x,
+                        y: excelPositions[excelPositions.length - 1].point.y,
+                      },
+                    },
+                    true,
+                  );
+                }
+              }
             }
             if (items) {
               // 마커 찍기
@@ -187,17 +215,21 @@
       // 경로 선 변수
       var polylines = null;
       // 경로 출력 및 거리 시간 계산
-      function setLine() {
+      function setLine(obj, notInit) {
+        var positionObj = startEndPosition;
+        // 매개변수가 들어오면 매개변수 값을 전송
+        if (obj) positionObj = obj;
+
         $.ajax({
           url: "/api/map/direction",
           type: "post",
-          data: startEndPosition,
+          data: obj,
           dataType: "json",
           success: function (jsonObj) {
             console.log(jsonObj);
             // 선 색
             var strokeColor = "#2196F3";
-            if (polylines) {
+            if (polylines && !notInit) {
               // 이미 경로가 있으면 삭제
               polylines.setMap(null);
             }
@@ -208,9 +240,18 @@
               strokeColor: strokeColor, // 선 색
               strokeWeight: 4, // 선 굵기
             });
-            // 거리 및 시간 계산
-            $("#duration").text(Math.floor(jsonObj.data.route.trafast[0].summary.duration / 1000 / 60));
-            $("#distance").text(jsonObj.data.route.trafast[0].summary.distance / 1000);
+            // 엑셀 데이터일 경우 거리, 시간 합
+            if (notInit) {
+              excelRangeInfo.duration += jsonObj.data.route.trafast[0].summary.duration;
+              excelRangeInfo.distance += jsonObj.data.route.trafast[0].summary.distance;
+              // 거리 및 시간 계산
+              $("#duration").text(Math.floor(excelRangeInfo.duration / 1000 / 60));
+              $("#distance").text(excelRangeInfo.distance / 1000);
+            } else {
+              // 거리 및 시간 계산
+              $("#duration").text(Math.floor(jsonObj.data.route.trafast[0].summary.duration / 1000 / 60));
+              $("#distance").text(jsonObj.data.route.trafast[0].summary.distance / 1000);
+            }
             // 주문 생성 버튼 보이기
             $("#createOrderBtn").show();
           },
@@ -228,7 +269,6 @@
       function closeOrderPopup() {
         $("#orderPopup").hide();
       }
-
       //파일 업로드
       function uploadFile(e) {
         //e.preventdefault();
@@ -273,7 +313,7 @@
                         str += "<td>" + addr + "</td>";
                         str += "<td>" + detailAddr + "</td>";
                         // 주소를 좌표로 변환하고 마커생성
-                        convertGeoCode(addr);
+                        convertGeoCode(addr, "save");
                       } else {
                         // 구주소일 경우 동, 읍, 면
                         var detailAddr = inObj[keys[i]].replace(/(.*)([$동읍면] [0-9]*[,]?)/, "");
@@ -281,7 +321,7 @@
                         str += "<td>" + addr + "</td>";
                         str += "<td>" + detailAddr + "</td>";
                         // 주소를 좌표로 변환하고 마커생성
-                        convertGeoCode(addr);
+                        convertGeoCode(addr, "save");
                       }
                     } else {
                       str += "<td>" + inObj[keys[i]] + "</td>";

@@ -299,7 +299,7 @@
         $.ajax({
           url: "/api/map/direction",
           type: "post",
-          data: obj,
+          data: positionObj,
           dataType: "json",
           success: function (jsonObj) {
             console.log(jsonObj);
@@ -484,6 +484,8 @@
       }
       // 마커 오브젝트 초기화
       function initMarkers() {
+        markers.start.setMap(null);
+        markers.end.setMap(null);
         if (markers.list.length > 0) {
           markers.list.map(function (markerObj) {
             markerObj.setMap(null);

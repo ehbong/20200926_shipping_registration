@@ -304,7 +304,7 @@
           success: function (jsonObj) {
             console.log(jsonObj);
             // 선 색
-            var strokeColor = "#2196F3";
+            var strokeColor = "#" + Math.round(Math.random() * 0xffffff).toString(16);
             if (polylines.length > 0 && !notInit) {
               // 이미 경로가 있으면 삭제
               initsPolylines();
@@ -487,8 +487,8 @@
       }
       // 마커 오브젝트 초기화
       function initMarkers() {
-        markers.start.setMap(null);
-        markers.end.setMap(null);
+        if (markers.start) markers.start.setMap(null);
+        if (markers.end) markers.end.setMap(null);
         if (markers.list.length > 0) {
           markers.list.map(function (markerObj) {
             markerObj.setMap(null);

@@ -408,8 +408,7 @@
         $("#orderPopup").hide();
       }
       //파일 업로드
-      function uploadFile(e) {
-        //e.preventdefault();
+      function uploadFile() {
         var form = $("#excelForm")[0];
         var formData = new FormData(form);
         formData.append("xlsx", $("#excelFile")[0].files[0]);
@@ -423,51 +422,57 @@
           success: function (result) {
             console.log(result);
             alert("업로드 성공!!");
-            var str = "";
-            if (result.success) {
-              // 신주소 구분 정규식
-              var regExp = new RegExp(/(.*)([$로] [0-9]*[,]?((번길)[ ]?[0-9]*)?)/);
-              var objData = result.resData;
-              var sheetKeyList = Object.keys(objData);
-              markerModeOnOff = false;
-              sheetKeyList.map(function (obj) {
-                // 파일 업로드로 그린 마커, 라인들이 있을 경우 삭제
-                initData();
-                objData[obj].map(function (inObj, idx) {
-                  var keys = Object.keys(inObj);
+            printExcelData(result);
+          },
+        });
+      }
+      // 엑셀 데이터 저장 및 그리기
+      function printExcelData(result) {
+        var str = "";
+        if (result.success) {
+          // 신주소 구분 정규식
+          var regExp = new RegExp(/(.*)([$로] [0-9]*[,]?((번길)[ ]?[0-9]*)?)/);
+          var objData = result.resData;
+          var sheetKeyList = Object.keys(objData);
+          markerModeOnOff = false;
+          sheetKeyList.map(function (obj) {
+            // 파일 업로드로 그린 마커, 라인들이 있을 경우 삭제
+            initData();
+            objData[obj].map(function (inObj, idx) {
+              var keys = Object.keys(inObj);
 
-                  str += "<tr>";
-                  for (var i = 0; i < keys.length; i++) {
-                    // 주소지와 상세주소 분리하기(검색 편의성)
-                    poupType = "";
-                    if (keys[i] == "배송지") {
-                      if (regExp.test(inObj[keys[i]])) {
-                        // 신주소 구조일 경우 ..로 000 구조
-                        var detailAddr = inObj[keys[i]].replace(regExp, "");
-                        var addr = inObj[keys[i]].replace(detailAddr, "").replace(/,$/, "");
-                        str += "<td>" + addr + "</td>";
-                        str += "<td>" + detailAddr + "</td>";
-                        // 주소를 좌표로 변환하고 마커생성
-                        convertGeoCode(addr, "save", idx);
-                      } else {
-                        // 구주소일 경우 동, 읍, 면
-                        var detailAddr = inObj[keys[i]].replace(/(.*)([$동읍면] [0-9]*[,]?)/, "");
-                        var addr = inObj[keys[i]].replace(detailAddr, "").replace(/,$/, "");
-                        str += "<td>" + addr + "</td>";
-                        str += "<td>" + detailAddr + "</td>";
-                        // 주소를 좌표로 변환하고 마커생성
-                        convertGeoCode(addr, "save", idx);
-                      }
-                    } else {
-                      str += "<td>" + inObj[keys[i]] + "</td>";
-                    }
+              str += "<tr>";
+              for (var i = 0; i < keys.length; i++) {
+                // 주소지와 상세주소 분리하기(검색 편의성)
+                poupType = "";
+                if (keys[i] == "배송지") {
+                  if (regExp.test(inObj[keys[i]])) {
+                    // 신주소 구조일 경우 ..로 000 구조
+                    var detailAddr = inObj[keys[i]].replace(regExp, "");
+                    var addr = inObj[keys[i]].replace(detailAddr, "").replace(/,$/, "");
+                    str += "<td>" + addr + "</td>";
+                    str += "<td>" + detailAddr + "</td>";
+                    // 주소를 좌표로 변환하고 마커생성
+                    convertGeoCode(addr, "save", idx);
+                  } else {
+                    // 구주소일 경우 동, 읍, 면
+                    var detailAddr = inObj[keys[i]].replace(/(.*)([$동읍면] [0-9]*[,]?)/, "");
+                    var addr = inObj[keys[i]].replace(detailAddr, "").replace(/,$/, "");
+                    str += "<td>" + addr + "</td>";
+                    str += "<td>" + detailAddr + "</td>";
+                    // 주소를 좌표로 변환하고 마커생성
+                    convertGeoCode(addr, "save", idx);
                   }
-                  str += "</tr>";
-                });
-              });
-              // 테이블 초기화
-              $("#excelTable").empty();
-              $("#excelTable").append(`<tr>
+                } else {
+                  str += "<td>" + inObj[keys[i]] + "</td>";
+                }
+              }
+              str += "</tr>";
+            });
+          });
+          // 테이블 초기화
+          $("#excelTable").empty();
+          $("#excelTable").append(`<tr>
                                         <th>주문번호</th>
                                         <th>서비스명</th>
                                         <th>칸번호</th>
@@ -477,10 +482,8 @@
                                         <th>배송지</th>
                                         <th>상세주소</th>
                                       </tr>`);
-              $("#excelTable").append(str);
-            }
-          },
-        });
+          $("#excelTable").append(str);
+        }
       }
       // 마커 오브젝트 초기화
       function initMarkers() {
@@ -531,7 +534,7 @@
         initData();
         markerModeOnOff = !markerModeOnOff;
       }
-
+      // 마커데이터, 경로데이터 삭제
       function initData() {
         initMarkers();
         initsPolylines();
